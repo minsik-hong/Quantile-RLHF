@@ -73,10 +73,12 @@ repos:
         language: system
         types: [python]
         require_serial: true
+        args: [--disable=wrong-spelling-in-comment,--disable=wrong-spelling-in-docstring]
         exclude: |
           (?x)(
             ^examples/|
             ^tests/|
             ^setup.py$|
-            ^docs/source/conf.py$
+            ^docs/source/conf.py$|
+            ^tools/upload/
           )
