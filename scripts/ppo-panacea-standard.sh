@@ -32,10 +32,10 @@ OBJECTIVE_NAMES=("verbosity" "complexity" "helpfulness" "correctness" "coherence
 # HuggingFace 형식: username/model-name
 # local path: output/
 VERBOSITY_MODEL_NAME_OR_PATH="output/rm_verbosity_PKU-Alignment/alpaca-8b-reproduced-llama-3"
-# COMPLEXITY_MODEL_NAME_OR_PATH="output/rm_complexity_PKU-Alignment/alpaca-8b-reproduced-llama-3"
+COMPLEXITY_MODEL_NAME_OR_PATH="output/rm_complexity_PKU-Alignment/alpaca-8b-reproduced-llama-3"
 HELPFULNESS_MODEL_NAME_OR_PATH="output/rm_helpfulness_PKU-Alignment/alpaca-8b-reproduced-llama-3"
-# CORRECTNESS_MODEL_NAME_OR_PATH="output/rm_correctness_PKU-Alignment/alpaca-8b-reproduced-llama-3"
-# COHERENCE_MODEL_NAME_OR_PATH="output/rm_coherence_PKU-Alignment/alpaca-8b-reproduced-llama-3"
+CORRECTNESS_MODEL_NAME_OR_PATH="output/rm_correctness_PKU-Alignment/alpaca-8b-reproduced-llama-3"
+COHERENCE_MODEL_NAME_OR_PATH="output/rm_coherence_PKU-Alignment/alpaca-8b-reproduced-llama-3"
 # =====================================================================
 
 # ================ Critic 모드 설정 ================
@@ -74,10 +74,10 @@ PANACEA_TARGET_MODULES="q_proj v_proj k_proj o_proj gate_proj up_proj down_proj"
 # ================ Training parameters ================
 EPOCHS=2
 UPDATE_ITERS=1
-PER_DEVICE_PROMPT_BATCH_SIZE=32   
-PER_DEVICE_TRAIN_BATCH_SIZE=32     
-PER_DEVICE_EVAL_BATCH_SIZE=32  
-GRADIENT_ACCUMULATION_STEPS=4 # batch size x gradient accumulation steps = total batch size -> 64 x 2 = 128 맞추기
+PER_DEVICE_PROMPT_BATCH_SIZE=16   
+PER_DEVICE_TRAIN_BATCH_SIZE=16     
+PER_DEVICE_EVAL_BATCH_SIZE=16  
+GRADIENT_ACCUMULATION_STEPS=8 # batch size x gradient accumulation steps = total batch size -> 64 x 2 = 128 맞추기
 ACTOR_LR=0.002  # 논문 설정
 # ACTOR_LR=0.0002 # 너무 이른 수렴 방지
 ACTOR_WEIGHT_DECAY=0.01

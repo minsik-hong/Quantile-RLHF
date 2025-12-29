@@ -30,12 +30,12 @@ OBJECTIVE_NAMES=("accuracy" "conciseness" "depth" "empathy" "specificity" "tone"
 # 각 목적 함수별 모델 경로 설정
 # HuggingFace 형식: username/model-name
 
-ACCURACY_MODEL_NAME_OR_PATH="imminsik/safe-rlhf-rm-accuracy"
-CONCISENESS_MODEL_NAME_OR_PATH="imminsik/safe-rlhf-rm-conciseness"
-DEPTH_MODEL_NAME_OR_PATH="imminsik/safe-rlhf-rm-depth"
-EMPATHY_MODEL_NAME_OR_PATH="imminsik/safe-rlhf-rm-empathy"
-SPECIFICITY_MODEL_NAME_OR_PATH="imminsik/safe-rlhf-rm-specificity"
-TONE_MODEL_NAME_OR_PATH="imminsik/safe-rlhf-rm-tone"
+ACCURACY_MODEL_NAME_OR_PATH="output/rm_accuracy_PKU-Alignment/alpaca-8b-reproduced-llama-3"
+CONCISENESS_MODEL_NAME_OR_PATH="output/rm_conciseness_PKU-Alignment/alpaca-8b-reproduced-llama-3"
+DEPTH_MODEL_NAME_OR_PATH="output/rm_depth_PKU-Alignment/alpaca-8b-reproduced-llama-3"
+EMPATHY_MODEL_NAME_OR_PATH="output/rm_empathy_PKU-Alignment/alpaca-8b-reproduced-llama-3"
+SPECIFICITY_MODEL_NAME_OR_PATH="output/rm_specificity_PKU-Alignment/alpaca-8b-reproduced-llama-3"
+TONE_MODEL_NAME_OR_PATH="output/rm_tone_PKU-Alignment/alpaca-8b-reproduced-llama-3"
 
 # ================================================================================
 
@@ -77,10 +77,10 @@ PANACEA_TARGET_MODULES="q_proj v_proj k_proj o_proj gate_proj up_proj down_proj"
 # ================ Training parameters ================
 EPOCHS=2
 UPDATE_ITERS=1
-PER_DEVICE_PROMPT_BATCH_SIZE=64    # 128 -> 64: 메모리 누적 방지
-PER_DEVICE_TRAIN_BATCH_SIZE=64     # 128 -> 64: CUDA 타임아웃 해결
-PER_DEVICE_EVAL_BATCH_SIZE=64      # 128 -> 64: 평가 메모리 절감
-GRADIENT_ACCUMULATION_STEPS=2 	   # batch size x gradient accumulation steps = total batch size -> 64 x 2 = 128 맞추기
+PER_DEVICE_PROMPT_BATCH_SIZE=16    # 128 -> 64: 메모리 누적 방지
+PER_DEVICE_TRAIN_BATCH_SIZE=16     # 128 -> 64: CUDA 타임아웃 해결
+PER_DEVICE_EVAL_BATCH_SIZE=16      # 128 -> 64: 평가 메모리 절감
+GRADIENT_ACCUMULATION_STEPS=8 	   # batch size x gradient accumulation steps = total batch size -> 64 x 2 = 128 맞추기
 # ACTOR_LR=0.002  # 논문 설정
 ACTOR_LR=0.002 # 너무 이른 수렴 방지
 ACTOR_WEIGHT_DECAY=0.01
@@ -122,6 +122,11 @@ ZERO_STAGE=2 # deepspeed 파라미터 분산 (stage 2: gradient + optimizer shar
 OFFLOAD="optimizer" # [none, parameter, optimizer, all] all이 가장 메모리 절약, 속도는 느림
 DEEPSPEED_TIMEOUT=600  # 커널 타임아웃 제한 증가 (기본값 300 → 600초)
 SAVE_16BIT=True  # bf16=True와 함께 사용 시 bf16으로 저장, 아니면 fp16으로 저장
+
+# ================ Quantization 설정 ================
+# 4-bit quantization for inference-only models
+QUANTIZE_REWARD_MODELS=True  # Reward 모델들을 4-bit로 로드 (inference only)
+QUANTIZE_REFERENCE_MODEL=True  # Reference 모델을 4-bit로 로드 (inference only)
 # ===================================================
 
 # ================ Datasets ================
@@ -152,7 +157,7 @@ LOG_FILE="${LOG_DIR}/${TIMESTAMP}.log"
 
 LOG_PROJECT="safe-rlhf-panacea-hummer-standard-qr"
 LOG_RUN_NAME="ppo-panacea-hummer-standard-${TIMESTAMP}"
-SAVE_INTERVAL=300
+SAVE_INTERVAL=1000
 
 unset CUDA_VISIBLE_DEVICES
 
@@ -248,6 +253,8 @@ deepspeed \
 	--critic_gradient_checkpointing "${CRITIC_GRADIENT_CHECKPOINTING}" \
 	--zero_stage "${ZERO_STAGE}" \
 	--offload "${OFFLOAD}" \
+	--quantize_reward_models "${QUANTIZE_REWARD_MODELS}" \
+	--quantize_reference_model "${QUANTIZE_REFERENCE_MODEL}" \
 	--output_dir "${OUTPUT_DIR}" \
 	--log_type "${LOG_TYPE}" \
 	--log_dir "${LOG_DIR}" \

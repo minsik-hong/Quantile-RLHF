@@ -65,10 +65,10 @@ PANACEA_TARGET_MODULES="q_proj v_proj k_proj o_proj gate_proj up_proj down_proj"
 # ================ Training parameters ================
 EPOCHS=2
 UPDATE_ITERS=1
-PER_DEVICE_PROMPT_BATCH_SIZE=64   
-PER_DEVICE_TRAIN_BATCH_SIZE=64     
-PER_DEVICE_EVAL_BATCH_SIZE=64  
-GRADIENT_ACCUMULATION_STEPS=2 # batch size x gradient accumulation steps = total batch size -> 64 x 2 = 128 맞추기
+PER_DEVICE_PROMPT_BATCH_SIZE=16   
+PER_DEVICE_TRAIN_BATCH_SIZE=16     
+PER_DEVICE_EVAL_BATCH_SIZE=16  
+GRADIENT_ACCUMULATION_STEPS=8 # batch size x gradient accumulation steps = total batch size -> 64 x 2 = 128 맞추기
 ACTOR_LR=0.002  # 논문 설정
 # ACTOR_LR=0.0002 # 너무 이른 수렴 방지
 ACTOR_WEIGHT_DECAY=0.01
