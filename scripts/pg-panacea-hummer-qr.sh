@@ -188,7 +188,7 @@ deepspeed \
 	--log_project "${LOG_PROJECT}" \
 	--log_run_name "${LOG_RUN_NAME}" \
 	--save_interval "${SAVE_INTERVAL}" \
-	--save_16bit "${SAVE_16BIT}" \
+	--save_16bit \
 	2>&1 | stdbuf -oL -eL tee -a "${LOG_FILE}"
 
 exit $?

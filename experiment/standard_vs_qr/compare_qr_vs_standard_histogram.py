@@ -1,26 +1,21 @@
+"""
+Standard vs QR Histogram Comparison
+
+Usage:
+    python compare_qr_vs_standard_histogram.py --dataset pku
+    python compare_qr_vs_standard_histogram.py --dataset helpsteer
+    python compare_qr_vs_standard_histogram.py --dataset hummer
+"""
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import entropy, wasserstein_distance
 import os
+import argparse
 
-# 경로 설정
-DIMENSIONS = ["helpful", "safe", "all"]
+from config import get_dataset_config, get_output_dir, add_dataset_argument
 
-STANDARD_BASE_PATHS = {
-    "helpful": "/home/hail/safe-rlhf-hk/eval_tables/kms_test/reward_logs_20251207_104402/Safe-RLHF-RM-helpful",
-    "safe": "/home/hail/safe-rlhf-hk/eval_tables/kms_test/reward_logs_20251207_222522/Safe-RLHF-RM-safe",
-    "all": "/home/hail/safe-rlhf-hk/eval_tables/kms_test/reward_logs_20251224_062618/Safe-RLHF-RM-hummer-all"
-}
-
-QR_BASE_PATHS = {
-    "helpful": "/home/hail/safe-rlhf-hk/eval_tables/kms_test/quantile_logs_20251214_060251/Safe-RLHF-RM-helpful",
-    "safe": "/home/hail/safe-rlhf-hk/eval_tables/kms_test/quantile_logs_20251213_035243/Safe-RLHF-RM-safe",
-    "all": "/home/hail/safe-rlhf-hk/eval_tables/kms_test/quantile_logs_20251224_151459/Safe-RLHF-RM-hummer-all"
-}
-
-STANDARD_PATHS = {dim: os.path.join(STANDARD_BASE_PATHS[dim], "alpaca-8b-reproduced-llama-3") for dim in DIMENSIONS}
-QR_PATHS = {dim: os.path.join(QR_BASE_PATHS[dim], "default") for dim in DIMENSIONS}
 
 def compute_distribution_distances(higher, lower, n_bins=100):
     """두 분포 간의 거리 지표들 계산"""
@@ -53,44 +48,69 @@ def compute_distribution_distances(higher, lower, n_bins=100):
         "Bhattacharyya": bhattacharyya,
     }
 
-def load_data():
-    data = {}
-    for dim in DIMENSIONS:
-        std_higher = pd.read_csv(os.path.join(STANDARD_PATHS[dim], "higher_rewards.csv"))["reward"]
-        std_lower = pd.read_csv(os.path.join(STANDARD_PATHS[dim], "lower_rewards.csv"))["reward"]
-        qr_higher = pd.read_csv(os.path.join(QR_PATHS[dim], "higher_quantiles_expectation.csv"))["q_expectation"]
-        qr_lower = pd.read_csv(os.path.join(QR_PATHS[dim], "lower_quantiles_expectation.csv"))["q_expectation"]
-        
-        # q0, q9 로드
-        qr_higher_full = pd.read_csv(os.path.join(QR_PATHS[dim], "higher_quantiles.csv"))
-        qr_lower_full = pd.read_csv(os.path.join(QR_PATHS[dim], "lower_quantiles.csv"))
-        
-        data[dim] = {
-            "std_higher": std_higher,
-            "std_lower": std_lower,
-            "qr_higher": qr_higher,
-            "qr_lower": qr_lower,
-            "qr_higher_q0": qr_higher_full["q0"],
-            "qr_lower_q0": qr_lower_full["q0"],
-            "qr_higher_q9": qr_higher_full["q9"],
-            "qr_lower_q9": qr_lower_full["q9"],
-        }
-    return data
 
-# ============ 공통 히스토그램 함수 ============
-def plot_histogram_grid(data_dict, title, out_path, density=False, shared_axis=False, labels=("Higher", "Lower")):
-    """
-    공통 히스토그램 그리기 함수
+def load_data(config):
+    """데이터 로드"""
+    dimensions = config["dimensions"]
+    standard_paths = config["standard_paths"]
+    qr_paths = config["qr_paths"]
     
-    data_dict: {
-        (row, col): {
-            "higher": Series,
-            "lower": Series,
-            "title": str,
-        }
-    }
-    labels: ("higher_label", "lower_label") - 범례 이름
-    """
+    data = {}
+    loaded_dims = []
+    
+    for dim in dimensions:
+        std_path = standard_paths.get(dim)
+        qr_path = qr_paths.get(dim)
+        
+        if not std_path or not qr_path:
+            print(f"[SKIP] {dim}: paths not configured")
+            continue
+            
+        if not os.path.exists(std_path) or not os.path.exists(qr_path):
+            print(f"[SKIP] {dim}: paths not found")
+            continue
+        
+        try:
+            std_higher = pd.read_csv(os.path.join(std_path, "higher_rewards.csv"))["reward"]
+            std_lower = pd.read_csv(os.path.join(std_path, "lower_rewards.csv"))["reward"]
+            
+            # QR expectation 파일이 없으면 mean 계산
+            qr_exp_higher_path = os.path.join(qr_path, "higher_quantiles_expectation.csv")
+            qr_exp_lower_path = os.path.join(qr_path, "lower_quantiles_expectation.csv")
+            
+            qr_higher_full = pd.read_csv(os.path.join(qr_path, "higher_quantiles.csv"))
+            qr_lower_full = pd.read_csv(os.path.join(qr_path, "lower_quantiles.csv"))
+            
+            if os.path.exists(qr_exp_higher_path):
+                qr_higher = pd.read_csv(qr_exp_higher_path)["q_expectation"]
+            else:
+                qr_higher = qr_higher_full.mean(axis=1)
+            
+            if os.path.exists(qr_exp_lower_path):
+                qr_lower = pd.read_csv(qr_exp_lower_path)["q_expectation"]
+            else:
+                qr_lower = qr_lower_full.mean(axis=1)
+            
+            data[dim] = {
+                "std_higher": std_higher,
+                "std_lower": std_lower,
+                "qr_higher": qr_higher,
+                "qr_lower": qr_lower,
+                "qr_higher_q0": qr_higher_full["q0"] if "q0" in qr_higher_full.columns else qr_higher_full.iloc[:, 0],
+                "qr_lower_q0": qr_lower_full["q0"] if "q0" in qr_lower_full.columns else qr_lower_full.iloc[:, 0],
+                "qr_higher_q9": qr_higher_full["q9"] if "q9" in qr_higher_full.columns else qr_higher_full.iloc[:, -1],
+                "qr_lower_q9": qr_lower_full["q9"] if "q9" in qr_lower_full.columns else qr_lower_full.iloc[:, -1],
+            }
+            loaded_dims.append(dim)
+            print(f"[LOADED] {dim}")
+        except Exception as e:
+            print(f"[ERROR] {dim}: {e}")
+    
+    return data, loaded_dims
+
+
+def plot_histogram_grid(data_dict, dimensions, title, out_path, density=False, shared_axis=False, labels=("Higher", "Lower")):
+    """공통 히스토그램 그리기 함수"""
     n_rows = max(k[0] for k in data_dict.keys()) + 1
     n_cols = max(k[1] for k in data_dict.keys()) + 1
     
@@ -98,7 +118,6 @@ def plot_histogram_grid(data_dict, title, out_path, density=False, shared_axis=F
     
     colors = {"higher": "#2ecc71", "lower": "#e74c3c"}
     
-    # 공통 축 계산
     if shared_axis:
         all_vals = []
         for k, v in data_dict.items():
@@ -107,7 +126,6 @@ def plot_histogram_grid(data_dict, title, out_path, density=False, shared_axis=F
         x_min, x_max = all_concat.min(), all_concat.max()
         bins = np.linspace(x_min, x_max, 61)
         
-        # y축 최대값 계산
         y_max = 0
         for k, v in data_dict.items():
             for arr in [v["higher"], v["lower"]]:
@@ -149,48 +167,62 @@ def plot_histogram_grid(data_dict, title, out_path, density=False, shared_axis=F
     print(f"[SAVED] {out_path}")
     plt.close()
 
-# ============ Standard vs QR 비교 ============
-def make_std_qr_data_dict(data):
+
+def make_std_qr_data_dict(data, dimensions):
     """Standard vs QR 데이터 딕셔너리 생성"""
     res = {}
-    for i, dim in enumerate(DIMENSIONS):
-        res[(0, i)] = {"higher": data[dim]["std_higher"], "lower": data[dim]["std_lower"], "title": f"Standard RM - {dim.capitalize()}"}
-        res[(1, i)] = {"higher": data[dim]["qr_higher"], "lower": data[dim]["qr_lower"], "title": f"QR RM - {dim.capitalize()}"}
+    for i, dim in enumerate(dimensions):
+        if dim not in data:
+            continue
+        res[(0, i)] = {"higher": data[dim]["std_higher"], "lower": data[dim]["std_lower"], 
+                       "title": f"Standard RM - {dim.capitalize()}"}
+        res[(1, i)] = {"higher": data[dim]["qr_higher"], "lower": data[dim]["qr_lower"], 
+                       "title": f"QR RM - {dim.capitalize()}"}
     return res
 
-# ============ q0 vs q9 비교 (Dimension별 4개 분포) ============
-def plot_q0_vs_q9_by_dimension(data, out_path, density=False, shared_axis=False):
+
+def plot_q0_vs_q9_by_dimension(data, dimensions, out_path, density=False, shared_axis=False):
     """DIMENSIONS 각각에 대해 Higher/Lower의 q0 vs q9 비교"""
-    n_dims = len(DIMENSIONS)
+    n_dims = len(dimensions)
     fig, axes = plt.subplots(1, n_dims, figsize=(7*n_dims, 5), squeeze=False)
     
     colors = {"higher_q9": "#2ecc71", "higher_q0": "#27ae60", 
               "lower_q9": "#e74c3c", "lower_q0": "#c0392b"}
     
-    # shared axis용 전역 범위 계산
     if shared_axis:
         all_vals = []
-        for dim in DIMENSIONS:
+        for dim in dimensions:
+            if dim not in data:
+                continue
             all_vals.extend([data[dim]["qr_higher_q0"], data[dim]["qr_higher_q9"],
                            data[dim]["qr_lower_q0"], data[dim]["qr_lower_q9"]])
-        all_concat = pd.concat(all_vals)
-        x_min, x_max = all_concat.min(), all_concat.max()
-        bins = np.linspace(x_min, x_max, 61)
-        
-        # y축 최대값 계산
-        y_max = 0
-        for dim in DIMENSIONS:
-            for arr in [data[dim]["qr_higher_q0"], data[dim]["qr_higher_q9"],
-                       data[dim]["qr_lower_q0"], data[dim]["qr_lower_q9"]]:
-                counts, _ = np.histogram(arr, bins=bins, density=density)
-                y_max = max(y_max, counts.max())
-        y_max = y_max * 1.1
+        if all_vals:
+            all_concat = pd.concat(all_vals)
+            x_min, x_max = all_concat.min(), all_concat.max()
+            bins = np.linspace(x_min, x_max, 61)
+            
+            y_max = 0
+            for dim in dimensions:
+                if dim not in data:
+                    continue
+                for arr in [data[dim]["qr_higher_q0"], data[dim]["qr_higher_q9"],
+                           data[dim]["qr_lower_q0"], data[dim]["qr_lower_q9"]]:
+                    counts, _ = np.histogram(arr, bins=bins, density=density)
+                    y_max = max(y_max, counts.max())
+            y_max = y_max * 1.1
+        else:
+            bins = 60
+            x_min, x_max, y_max = None, None, None
     else:
         bins = 60
         x_min, x_max, y_max = None, None, None
     
-    for idx, dim in enumerate(DIMENSIONS):
+    for idx, dim in enumerate(dimensions):
         ax = axes[0, idx]
+        
+        if dim not in data:
+            ax.axis('off')
+            continue
         
         higher_q0 = data[dim]["qr_higher_q0"]
         higher_q9 = data[dim]["qr_higher_q9"]
@@ -211,7 +243,7 @@ def plot_q0_vs_q9_by_dimension(data, out_path, density=False, shared_axis=False)
         ax.axvline(lower_q9.mean(), color="#922b21", linestyle="--", linewidth=2)
         ax.axvline(lower_q0.mean(), color="#7b241c", linestyle=":", linewidth=2)
         
-        if shared_axis:
+        if shared_axis and x_min is not None:
             ax.set_xlim(x_min, x_max)
             ax.set_ylim(0, y_max)
         
@@ -226,7 +258,8 @@ def plot_q0_vs_q9_by_dimension(data, out_path, density=False, shared_axis=False)
     print(f"[SAVED] {out_path}")
     plt.close()
 
-def compute_and_print_distances(data):
+
+def compute_and_print_distances(data, dimensions):
     """KL Divergence 및 기타 분포 거리 지표 계산"""
     print("\n" + "="*80)
     print("Distribution Distance Metrics: Higher vs Lower")
@@ -234,7 +267,9 @@ def compute_and_print_distances(data):
     
     results = {}
     for model_type in ["Standard", "QR"]:
-        for dim in DIMENSIONS:
+        for dim in dimensions:
+            if dim not in data:
+                continue
             d = data[dim]
             if model_type == "Standard":
                 higher = d["std_higher"].values
@@ -252,49 +287,51 @@ def compute_and_print_distances(data):
             for metric, val in distances.items():
                 print(f"  {metric:15s}: {val:.4f}")
     
-    # Summary Table
-    print("\n" + "="*80)
-    print("Summary Comparison Table")
-    print("="*80)
-    header = f"{'Metric':15s}"
-    for model_type in ["Std", "QR"]:
-        for dim in DIMENSIONS:
-            header += f" | {model_type} {dim.capitalize():>8s}"
-    print(header)
-    print("-" * len(header))
-    
-    for metric in ["KL(H||L)", "KL(L||H)", "JS Div", "Wasserstein", "Bhattacharyya"]:
-        row = f"{metric:15s}"
-        for model_type in ["Standard", "QR"]:
-            for dim in DIMENSIONS:
-                val = results[f"{model_type}_{dim}"].get(metric, 0)
-                row += f" | {val:>12.4f}"
-        print(row)
-    
     return results
 
-if __name__ == "__main__":
-    os.makedirs("/home/hail/safe-rlhf-hk/figures/standard_vs_qr", exist_ok=True)
-    data = load_data()
+
+def main():
+    parser = argparse.ArgumentParser(description="Standard vs QR Histogram Comparison")
+    add_dataset_argument(parser)
+    args = parser.parse_args()
     
-    dim_suffix = f"_{DIMENSIONS[0]}" if len(DIMENSIONS) == 1 else ""
+    print(f"\n{'='*60}")
+    print(f"Histogram Comparison - Dataset: {args.dataset}")
+    print(f"{'='*60}\n")
     
-    # Standard vs QR (4개)
-    std_qr_dict = make_std_qr_data_dict(data)
-    plot_histogram_grid(std_qr_dict, "Higher vs Lower: Standard vs QR", 
-                       f"/home/hail/safe-rlhf-hk/figures/standard_vs_qr/higher_lower_histogram_comparison{dim_suffix}.png", density=False, shared_axis=False)
-    plot_histogram_grid(std_qr_dict, "Probability Density: Standard vs QR", 
-                       f"/home/hail/safe-rlhf-hk/figures/standard_vs_qr/higher_lower_histogram_density{dim_suffix}.png", density=True, shared_axis=False)
-    plot_histogram_grid(std_qr_dict, "Higher vs Lower (Shared Axis)", 
-                       f"/home/hail/safe-rlhf-hk/figures/standard_vs_qr/higher_lower_histogram_shared_axis{dim_suffix}.png", density=False, shared_axis=True)
-    plot_histogram_grid(std_qr_dict, "Probability Density (Shared Axis)", 
-                       f"/home/hail/safe-rlhf-hk/figures/standard_vs_qr/higher_lower_histogram_density_shared_axis{dim_suffix}.png", density=True, shared_axis=True)
+    config = get_dataset_config(args.dataset, auto_latest=getattr(args, "auto_latest", False))
+    data, loaded_dims = load_data(config)
     
-    # q0 vs q9 (4개 그래프: self-scaled 2개 + shared-axis 2개)
-    plot_q0_vs_q9_by_dimension(data, f"/home/hail/safe-rlhf-hk/figures/standard_vs_qr/q0_q9_histogram{dim_suffix}.png", density=False, shared_axis=False)
-    plot_q0_vs_q9_by_dimension(data, f"/home/hail/safe-rlhf-hk/figures/standard_vs_qr/q0_q9_histogram_density{dim_suffix}.png", density=True, shared_axis=False)
-    plot_q0_vs_q9_by_dimension(data, f"/home/hail/safe-rlhf-hk/figures/standard_vs_qr/q0_q9_histogram_shared_axis{dim_suffix}.png", density=False, shared_axis=True)
-    plot_q0_vs_q9_by_dimension(data, f"/home/hail/safe-rlhf-hk/figures/standard_vs_qr/q0_q9_histogram_density_shared_axis{dim_suffix}.png", density=True, shared_axis=True)
+    if not data:
+        print("No data loaded. Exiting.")
+        return
+    
+    save_dir = get_output_dir(args.dataset)
+    
+    # Standard vs QR
+    std_qr_dict = make_std_qr_data_dict(data, loaded_dims)
+    
+    if std_qr_dict:
+        plot_histogram_grid(std_qr_dict, loaded_dims, f"Higher vs Lower: Standard vs QR ({config['name']})", 
+                           os.path.join(save_dir, f"histogram_comparison_{args.dataset}.png"), 
+                           density=False, shared_axis=False)
+        plot_histogram_grid(std_qr_dict, loaded_dims, f"Probability Density: Standard vs QR ({config['name']})", 
+                           os.path.join(save_dir, f"histogram_density_{args.dataset}.png"), 
+                           density=True, shared_axis=False)
+    
+    # q0 vs q9
+    plot_q0_vs_q9_by_dimension(data, loaded_dims, 
+                               os.path.join(save_dir, f"q0_q9_histogram_{args.dataset}.png"), 
+                               density=False, shared_axis=False)
+    plot_q0_vs_q9_by_dimension(data, loaded_dims, 
+                               os.path.join(save_dir, f"q0_q9_histogram_density_{args.dataset}.png"), 
+                               density=True, shared_axis=False)
     
     # 통계
-    compute_and_print_distances(data)
+    compute_and_print_distances(data, loaded_dims)
+    
+    print(f"\n✅ Analysis complete. Results saved to {save_dir}")
+
+
+if __name__ == "__main__":
+    main()

@@ -61,10 +61,14 @@ safe-rlhf-hk/
 │
 ├── experiment/             # 실험 및 분석 코드
 │   ├── panacea/            # Panacea 관련 실험
+│   │   ├── figures/                        # Pareto Front 시각화 결과
 │   │   ├── benchmark_paper_metrics.py      # Standard RM 메트릭
 │   │   ├── benchmark_paper_metrics_qr.py   # QR RM 메트릭
 │   │   └── panacea_vector_imminsik.py      # Pareto Front 시각화
 │   ├── standard_vs_qr/     # Standard vs QR 비교 분석
+│   │   ├── figures/                        # 비교 분석 시각화 결과
+│   │   ├── config.py                       # 데이터셋별 설정
+│   │   └── run_all_analysis.py             # 전체 분석 파이프라인
 │   └── old/                # 이전 실험 코드
 │
 ├── tools/                  # 유틸리티 스크립트
@@ -84,16 +88,12 @@ safe-rlhf-hk/
 │   ├── rm_qr_*/            # Quantile RM 출력
 │   └── ppo-panacea-*/      # Panacea PPO 출력
 │
-├── figures/                # 시각화 결과
-│   ├── panacea/            # Pareto Front 그래프
-│   └── standard_vs_qr/     # 비교 분석 그래프
-│
 └── eval_tables/            # 평가 결과 테이블 (scalar, qr reward value - eval 데이터)
 ```
 
 ---
 
-## 핵심 구성 요소
+## 구성 요소
 
 ### 1. Panacea (Multi-Objective RLHF)
 
@@ -305,12 +305,25 @@ python experiment/panacea/benchmark_paper_metrics_qr.py
 
 ### Standard vs QR 비교 (reward model value 비교)
 
+모든 분석 스크립트는 `--dataset` 옵션으로 데이터셋을 선택할 수 있습니다.
+
+| 데이터셋 | 차원 | 옵션 |
+|----------|------|------|
+| PKU-SafeRLHF | 2D (helpful, safe) | `--dataset pku` |
+| HelpSteer | 5D (helpfulness, coherence, complexity, correctness, verbosity) | `--dataset helpsteer` |
+| Hummer | 6D 개별 차원 (accuracy, conciseness, depth, empathy, specificity, tone) | `--dataset hummer` |
+| Hummer-All | 6D 통합 단일 모델 | `--dataset hummer-all` |
+
 | 파일 | 역할 |
 |------|------|
+| `experiment/standard_vs_qr/config.py` | 공통 설정 (데이터셋별 경로/차원 관리) |
+| `experiment/standard_vs_qr/run_all_analysis.py` | 전체 분석 파이프라인 자동 실행 |
 | `experiment/standard_vs_qr/compare_qr_vs_standard_histogram.py` | 히스토그램 비교 |
 | `experiment/standard_vs_qr/compare_qr_vs_standard_kde.py` | KDE 비교 |
 | `experiment/standard_vs_qr/comprehensive_roc_analysis.py` | ROC 분석 |
-| `experiment/standard_vs_qr/conflict_analysis.py` | 충돌 분석 |
+| `experiment/standard_vs_qr/comprehensive_statistical_analysis.py` | 통계 분석 (AUC, Cohen's d 등) |
+| `experiment/standard_vs_qr/hard_case_analysis.py` | High Spread (불확실성) 분석 |
+| `experiment/standard_vs_qr/conflict_analysis.py` | 충돌 분석 (PKU only: helpful vs safe) |
 
 ---
 
@@ -396,6 +409,10 @@ python experiment/panacea/panacea_vector_imminsik.py
 ---
 
 ## 상세 실행 방법
+
+```bash
+export WANDB_API_KEY='wandb-key'
+```
 
 ### 1. Reward Model 학습
 
@@ -495,15 +512,38 @@ python experiment/panacea/panacea_vector_imminsik.py
 #### Standard vs Quantile 비교 분석
 
 ```bash
-# 히스토그램 비교
-python experiment/standard_vs_qr/compare_qr_vs_standard_histogram.py
+# 전체 분석 파이프라인 (단일 데이터셋)
+python experiment/standard_vs_qr/run_all_analysis.py --dataset pku
+python experiment/standard_vs_qr/run_all_analysis.py --dataset helpsteer
+python experiment/standard_vs_qr/run_all_analysis.py --dataset hummer
+python experiment/standard_vs_qr/run_all_analysis.py --dataset hummer-all
 
-# KDE 비교
-python experiment/standard_vs_qr/compare_qr_vs_standard_kde.py
+# 모든 데이터셋 일괄 분석
+python experiment/standard_vs_qr/run_all_analysis.py --all
 
-# ROC 분석
-python experiment/standard_vs_qr/comprehensive_roc_analysis.py
+# 최신 로그 폴더 자동 탐색 (--auto-latest)
+# eval_tables에서 reward_logs_*, quantile_logs_*를 각각 독립적으로 최신 버전 탐색
+python experiment/standard_vs_qr/run_all_analysis.py --dataset hummer --auto-latest
+python experiment/standard_vs_qr/run_all_analysis.py --all --auto-latest
+
+# 개별 분석 스크립트 (데이터셋 지정)
+python experiment/standard_vs_qr/compare_qr_vs_standard_histogram.py --dataset pku
+python experiment/standard_vs_qr/compare_qr_vs_standard_kde.py --dataset helpsteer
+python experiment/standard_vs_qr/comprehensive_roc_analysis.py --dataset hummer
+python experiment/standard_vs_qr/comprehensive_statistical_analysis.py --dataset pku
+python experiment/standard_vs_qr/hard_case_analysis.py --dataset hummer
+
+# 개별 스크립트에서도 --auto-latest 사용 가능
+python experiment/standard_vs_qr/comprehensive_roc_analysis.py --dataset hummer --auto-latest
+python experiment/standard_vs_qr/hard_case_analysis.py --dataset hummer --auto-latest
+
+# 충돌 분석 (PKU only: helpful vs safe)
+python experiment/standard_vs_qr/conflict_analysis.py --dataset pku
 ```
+
+> **`--auto-latest` 옵션**: `eval_tables/kms_test/`에서 `reward_logs_YYYYMMDD_HHMMSS`와 `quantile_logs_YYYYMMDD_HHMMSS`를 각각 독립적으로 최신 버전을 탐색합니다. 하드코딩된 경로 대신 동적으로 최신 평가 결과를 사용합니다.
+
+분석 결과는 `experiment/standard_vs_qr/figures/{dataset}/` 폴더에 저장됩니다.
 
 ### 5. 모델 추론
 
@@ -575,10 +615,15 @@ python tools/data_processing/merge_datasets.py
 
 ### 시각화 결과
 
+각 실험 폴더 내 `figures/` 디렉토리에서 결과를 관리합니다.
+
 | 디렉토리 | 내용 |
 |----------|------|
-| `figures/panacea/` | Pareto Front 2D/3D 그래프 |
-| `figures/standard_vs_qr/` | Standard vs QR 비교 그래프 |
+| `experiment/panacea/figures/` | Pareto Front 2D/3D 그래프 |
+| `experiment/standard_vs_qr/figures/pku/` | PKU-SafeRLHF 비교 분석 결과 |
+| `experiment/standard_vs_qr/figures/helpsteer/` | HelpSteer 비교 분석 결과 |
+| `experiment/standard_vs_qr/figures/hummer/` | Hummer 6D 개별 차원 분석 결과 |
+| `experiment/standard_vs_qr/figures/hummer-all/` | Hummer 6D 통합 모델 분석 결과 |
 
 ### 평가 결과
 

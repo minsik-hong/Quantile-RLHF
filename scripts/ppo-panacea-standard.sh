@@ -25,8 +25,7 @@ MODEL_NAME_OR_PATH="PKU-Alignment/alpaca-8b-reproduced-llama-3"
 
 # ================ Objective Functions Configuration ================
 # 목적 함수 이름 리스트 (동적 설정)
-# OBJECTIVE_NAMES=("verbosity" "complexity" "helpfulness" "correctness" "coherence")
-OBJECTIVE_NAMES=("verbosity" "helpfulness")
+OBJECTIVE_NAMES=("verbosity" "complexity" "helpfulness" "correctness" "coherence")
 
 # ================ STANDARD REWARD MODELS (기존 데이터셋) ================
 # 각 목적 함수별 모델 경로 설정
@@ -261,7 +260,7 @@ deepspeed \
 	--log_project "${LOG_PROJECT}" \
 	--log_run_name "${LOG_RUN_NAME}" \
 	--save_interval "${SAVE_INTERVAL}" \
-	--save_16bit "${SAVE_16BIT}" \
+	--save_16bit \
 	2>&1 | stdbuf -oL -eL tee -a "${LOG_FILE}"
 
 exit $?

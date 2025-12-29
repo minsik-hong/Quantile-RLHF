@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # ========= 데이터셋 선택 =========
 # 사용할 데이터셋: "helpsteer", "hummer", "hh"
-DATASET = "helpsteer"  # "helpsteer", "hummer", "hh" 
+DATASET = "hummer"  # "helpsteer", "hummer", "hh" 
 
 # ========= 공통 설정 =========
 # 데이터셋에 따라 BASE_OR_SFT 자동 설정
@@ -46,7 +46,7 @@ REP_PEN = 1.05
 RESAMPLE_RETRIES = 2
 
 # 반복 샘플링 수
-N_REPEAT = 3  # 빠른 테스트 1
+N_REPEAT = 1  # 빠른 테스트 1
 
 # Grid 포인트 수
 GRID_POINTS = 3  
@@ -580,7 +580,9 @@ def run_experiment(run_number):
 
     plt.tight_layout()
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"/home/hail/safe-rlhf-hk/figures/panacea_fronts_{n_dimensions}d_imminsik_{run_number}_{timestamp}.png"
+    figures_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures")
+    os.makedirs(figures_dir, exist_ok=True)
+    filename = os.path.join(figures_dir, f"panacea_fronts_{n_dimensions}d_imminsik_{run_number}_{timestamp}.png")
     plt.savefig(filename, dpi=300, bbox_inches="tight")
     logger.info(f"Plot saved as {filename}")
     plt.close()
@@ -662,7 +664,9 @@ def run_experiment(run_number):
             ax.legend(loc='upper left')
             
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename_3d = f"/home/hail/safe-rlhf-hk/figures/panacea_3d_{proj_3d_name}_{run_number}_{timestamp}.png"
+            figures_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures")
+            os.makedirs(figures_dir, exist_ok=True)
+            filename_3d = os.path.join(figures_dir, f"panacea_3d_{proj_3d_name}_{run_number}_{timestamp}.png")
             plt.savefig(filename_3d, dpi=300, bbox_inches="tight")
             logger.info(f"3D Plot saved as {filename_3d}")
         else:

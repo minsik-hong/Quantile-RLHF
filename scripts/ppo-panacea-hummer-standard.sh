@@ -20,7 +20,7 @@ export MKL_THREADING_LAYER=SEQUENTIAL
 # Skip DeepSpeed CUDA version check to avoid CUDA 13.0 vs 12.8 mismatch
 export DS_SKIP_CUDA_CHECK=1
 
-MODEL_NAME_OR_PATH="imminsik/sft-tinyllama-deepspeed-20251105"
+MODEL_NAME_OR_PATH="PKU-Alignment/alpaca-8b-reproduced-llama-3"
 
 # ================ Objective Functions Configuration ================
 # 목적 함수 이름 리스트 (동적 설정)
@@ -75,14 +75,14 @@ PANACEA_TARGET_MODULES="q_proj v_proj k_proj o_proj gate_proj up_proj down_proj"
 # =============================================================
 
 # ================ Training parameters ================
-EPOCHS=1
+EPOCHS=2
 UPDATE_ITERS=1
 PER_DEVICE_PROMPT_BATCH_SIZE=64    # 128 -> 64: 메모리 누적 방지
 PER_DEVICE_TRAIN_BATCH_SIZE=64     # 128 -> 64: CUDA 타임아웃 해결
 PER_DEVICE_EVAL_BATCH_SIZE=64      # 128 -> 64: 평가 메모리 절감
 GRADIENT_ACCUMULATION_STEPS=2 	   # batch size x gradient accumulation steps = total batch size -> 64 x 2 = 128 맞추기
 # ACTOR_LR=0.002  # 논문 설정
-ACTOR_LR=0.0002 # 너무 이른 수렴 방지
+ACTOR_LR=0.002 # 너무 이른 수렴 방지
 ACTOR_WEIGHT_DECAY=0.01
 ACTOR_LR_SCHEDULER_TYPE="cosine"
 ACTOR_LR_WARMUP_RATIO=0.03 # 논문 설정
@@ -102,7 +102,7 @@ TOP_P=1.0
 REPETITION_PENALTY=1.0
 KL_COEFF=0.02  # 기본값
 # CLIP_RANGE_RATIO=0.2 # 논문 설정
-CLIP_RANGE_RATIO=0.1 # policy 튀는 거 더욱 방지
+CLIP_RANGE_RATIO=0.2 # policy 튀는 거 더욱 방지
 CLIP_RANGE_SCORE=50.0
 CLIP_RANGE_VALUE=5.0
 PTX_COEFF=16.0
@@ -126,9 +126,9 @@ SAVE_16BIT=True  # bf16=True와 함께 사용 시 bf16으로 저장, 아니면 f
 
 # ================ Datasets ================
 # TRAIN_DATASETS="PKU-SafeRLHF/train::kmseong/safe-rlhf"
-TRAIN_DATASETS="PKU-SafeRLHF/train:0.5"
+TRAIN_DATASETS="PKU-SafeRLHF/train"
 # TRAIN_DATASETS="PKU-Alignment/BeaverTails"
-PTX_DATASETS="alpaca:0.5"  # alpaca 데이터의 :0.01만 사용
+PTX_DATASETS="alpaca"  # alpaca 데이터의 :0.01만 사용
 # ==========================================
 
 # ================ Output and logging ================	
@@ -254,7 +254,7 @@ deepspeed \
 	--log_project "${LOG_PROJECT}" \
 	--log_run_name "${LOG_RUN_NAME}" \
 	--save_interval "${SAVE_INTERVAL}" \
-	--save_16bit "${SAVE_16BIT}" \
+	--save_16bit \
 	2>&1 | stdbuf -oL -eL tee -a "${LOG_FILE}"
 
 exit $?

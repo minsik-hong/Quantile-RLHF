@@ -52,6 +52,10 @@ import shutil
 from pathlib import Path
 from huggingface_hub import HfApi, create_repo, upload_folder
 
+# 프로젝트 루트 디렉토리 (이 스크립트 기준 ../../)
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent.parent
+
 
 def has_model_weights(model_dir: str) -> tuple:
     """
@@ -89,26 +93,26 @@ def upload_reward_model(dimension: str, model_type: str = "standard", hf_usernam
         hf_username: Hugging Face username
         token: Hugging Face API token (if None, uses HF_TOKEN env variable)
     """
-    # Determine model directory - try both path formats
+    # Determine model directory - try both path formats (프로젝트 루트 기준)
     if model_type == "qr":
         candidates = [
-            f"output/rm_qr_{dimension}_PKU-Alignment/alpaca-8b-reproduced-llama-3",
-            f"output/rm_qr_{dimension}",
+            PROJECT_ROOT / f"output/rm_qr_{dimension}_PKU-Alignment/alpaca-8b-reproduced-llama-3",
+            PROJECT_ROOT / f"output/rm_qr_{dimension}",
         ]
     else:  # standard RM
         candidates = [
-            f"output/rm_{dimension}_PKU-Alignment/alpaca-8b-reproduced-llama-3",
-            f"output/rm_{dimension}",
+            PROJECT_ROOT / f"output/rm_{dimension}_PKU-Alignment/alpaca-8b-reproduced-llama-3",
+            PROJECT_ROOT / f"output/rm_{dimension}",
         ]
     
     # Find first existing directory with model files
     model_dir = None
     weight_format = None
     for candidate in candidates:
-        if os.path.exists(candidate):
-            has_weights, fmt = has_model_weights(candidate)
+        if candidate.exists():
+            has_weights, fmt = has_model_weights(str(candidate))
             if has_weights:
-                model_dir = candidate
+                model_dir = str(candidate)
                 weight_format = fmt
                 break
     

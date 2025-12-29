@@ -40,6 +40,10 @@ import shutil
 from pathlib import Path
 from huggingface_hub import HfApi, create_repo
 
+# 프로젝트 루트 디렉토리 (이 스크립트 기준 ../../)
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent.parent
+
 
 def has_model_weights(model_dir: str) -> tuple:
     """
@@ -77,27 +81,27 @@ def upload_ppo_model(model_type: str = "standard", dataset: str = "HH", hf_usern
         hf_username: Hugging Face username
         token: Hugging Face API token (if None, uses HF_TOKEN env variable)
     """
-    # Determine model directory based on dataset and type
+    # Determine model directory based on dataset and type (프로젝트 루트 기준)
     if dataset == "HH":
         if model_type == "qr":
-            model_dir = "output/ppo-panacea-HH-qr"
+            model_dir = str(PROJECT_ROOT / "output/ppo-panacea-HH-qr")
             repo_name = "ppo-panacea-HH-qr"
         else:
-            model_dir = "output/ppo-panacea-HH-standard"
+            model_dir = str(PROJECT_ROOT / "output/ppo-panacea-HH-standard")
             repo_name = "ppo-panacea-HH-standard"
     elif dataset == "hummer":
         if model_type == "qr":
-            model_dir = "output/ppo-panacea-hummer-qr"
+            model_dir = str(PROJECT_ROOT / "output/ppo-panacea-hummer-qr")
             repo_name = "ppo-panacea-hummer-qr"
         else:
-            model_dir = "output/ppo-panacea-hummer-standard"
+            model_dir = str(PROJECT_ROOT / "output/ppo-panacea-hummer-standard")
             repo_name = "ppo-panacea-hummer-standard"
     else:  # helpsteer or default
         if model_type == "qr":
-            model_dir = "output/ppo-panacea-qr"
+            model_dir = str(PROJECT_ROOT / "output/ppo-panacea-qr")
             repo_name = "ppo-panacea-qr"
         else:
-            model_dir = "output/ppo-panacea-standard"
+            model_dir = str(PROJECT_ROOT / "output/ppo-panacea-standard")
             repo_name = "ppo-panacea-standard"
     
     # Check if model exists
