@@ -344,13 +344,221 @@ python experiment/panacea/benchmark_paper_metrics_qr.py
 
 ## 환경 설정 
 
-### Conda 환경
+### 1. Conda 환경 활성화
 
 ```bash
 conda activate hk
 ```
+
+### 2. 의존성 설치
+
+```bash
+pip install -r requirements.txt
+```
+
+### 3. 프로젝트 설치
+
+```bash
+pip install -e .
+```
+
 ---
 
+## 빠른 시작 가이드
+
+### 전체 파이프라인 (PKU-SafeRLHF 2차원: helpful, safe)
+
+```bash
+# 1. 환경 활성화
+conda activate hk
+cd /home/hail/safe-rlhf-hk
+
+# 2. Reward Model 학습 (Standard)
+bash scripts/reward-model-dimension-HH.sh
+
+# 3. Reward Model 학습 (Quantile)
+bash scripts/reward-model-dimension-HH-qr.sh
+
+# 4. Panacea PPO 학습 (Standard RM 사용)
+bash scripts/ppo-panacea-HH-standard.sh
+
+# 5. Panacea PPO 학습 (Quantile RM 사용)
+bash scripts/ppo-panacea-HH-qr.sh
+
+# 6. 평가 및 메트릭 계산
+python experiment/panacea/benchmark_paper_metrics.py
+python experiment/panacea/benchmark_paper_metrics_qr.py
+
+# 7. Pareto Front 시각화
+python experiment/panacea/panacea_vector_imminsik.py
+```
+
+---
+
+## 상세 실행 방법
+
+### 1. Reward Model 학습
+
+#### Standard Reward Model
+
+```bash
+# PKU-SafeRLHF (helpful, safe)
+bash scripts/reward-model-dimension-HH.sh
+
+# 전체 차원 일괄 학습
+bash scripts/run_all_reward_models_HH.sh
+
+# Hummer 6차원
+bash scripts/reward-model-dimension-hummer.sh
+
+# HelpSteer 5차원
+bash scripts/reward-model-dimension.sh
+```
+
+#### Quantile Reward Model
+
+```bash
+# PKU-SafeRLHF (helpful, safe)
+bash scripts/reward-model-dimension-HH-qr.sh
+
+# 전체 차원 일괄 학습
+bash scripts/run_all_reward_models_qr_HH.sh
+
+# Hummer 6차원
+bash scripts/reward-model-dimension-qr-hummer.sh
+
+# HelpSteer 5차원
+bash scripts/reward-model-dimension-qr.sh
+```
+
+### 2. Panacea PPO 학습
+
+#### 2차원 (helpful, safe)
+
+```bash
+# Standard RM 기반
+bash scripts/ppo-panacea-HH-standard.sh
+
+# Quantile RM 기반
+bash scripts/ppo-panacea-HH-qr.sh
+```
+
+#### 6차원 (Hummer)
+
+```bash
+# Standard RM 기반
+bash scripts/ppo-panacea-hummer-standard.sh
+
+# Quantile RM 기반
+bash scripts/ppo-panacea-hummer-qr.sh
+```
+
+#### 5차원 (HelpSteer)
+
+```bash
+# Standard RM 기반
+bash scripts/ppo-panacea-standard.sh
+
+# Quantile RM 기반
+bash scripts/ppo-panacea-qr.sh
+```
+
+### 3. Pure Policy Gradient (PG) Panacea
+
+```bash
+# Standard RM 기반
+bash scripts/pg-panacea-standard.sh
+
+# Quantile RM 기반
+bash scripts/pg-panacea-qr.sh
+```
+
+### 4. 평가 및 시각화
+
+#### Pareto 메트릭 계산 (HV, IP, SP, Spacing)
+
+```bash
+# Standard RM 기반 Panacea
+python experiment/panacea/benchmark_paper_metrics.py
+
+# Quantile RM 기반 Panacea
+python experiment/panacea/benchmark_paper_metrics_qr.py
+```
+
+#### Pareto Front 시각화
+
+```bash
+# 2D/3D Pareto Front 그래프 생성
+python experiment/panacea/panacea_vector_imminsik.py
+```
+
+#### Standard vs Quantile 비교 분석
+
+```bash
+# 히스토그램 비교
+python experiment/standard_vs_qr/compare_qr_vs_standard_histogram.py
+
+# KDE 비교
+python experiment/standard_vs_qr/compare_qr_vs_standard_kde.py
+
+# ROC 분석
+python experiment/standard_vs_qr/comprehensive_roc_analysis.py
+```
+
+### 5. 모델 추론
+
+```bash
+# Panacea 모델 추론 (선호도 벡터 지정)
+python experiment/panacea/panacea_inference.py
+
+# Standard RM 기반 추론
+python experiment/panacea/panacea_infer_standard.py
+```
+
+### 6. 모델 업로드 (HuggingFace)
+
+```bash
+# HF 토큰 설정
+export HF_TOKEN='your_token_here'
+
+# Reward Model 업로드
+python tools/upload/upload_rm_to_hf.py --dimension helpful --type standard
+python tools/upload/upload_rm_to_hf.py --all --type both
+
+# PPO 모델 업로드
+python tools/upload/upload_ppo_to_hf.py --type standard --dataset HH
+python tools/upload/upload_ppo_to_hf.py --type both --dataset all
+```
+
+### 7. 유틸리티
+
+#### 모델 bf16 변환
+
+```bash
+# 변환 대상 확인
+python scripts/convert_to_bf16.py --status
+
+# 전체 변환 (dry-run)
+python scripts/convert_to_bf16.py --all --dry-run
+
+# 실제 변환
+python scripts/convert_to_bf16.py --all
+```
+
+#### 데이터 처리
+
+```bash
+# Hummer 데이터 분할
+python tools/data_processing/convert_hummer_split.py
+
+# HelpSteer 데이터 분할
+python tools/data_processing/split_all_dimensions.py
+
+# 데이터셋 병합
+python tools/data_processing/merge_datasets.py
+```
+
+---
 
 ## 출력 결과
 

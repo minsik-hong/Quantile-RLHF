@@ -4,11 +4,12 @@ Upload dimension-specific reward models to Hugging Face Hub.
 
 Usage Examples:
     # Upload single dimension (default: standard type)
-    python upload_rm_to_hf.py --dimension helpfulness
+    python upload_rm_to_hf.py --dimension helpful
+    python upload_rm_to_hf.py --dimension safe
     
     # Upload single dimension with specific type
-    python upload_rm_to_hf.py --dimension helpfulness --type qr
-    python upload_rm_to_hf.py --dimension helpfulness --type standard
+    python upload_rm_to_hf.py --dimension helpful --type qr
+    python upload_rm_to_hf.py --dimension helpful --type standard
     
     # Upload all dimensions (default: standard type)
     python upload_rm_to_hf.py --all
@@ -30,16 +31,18 @@ Usage Examples:
     export HF_TOKEN='your_token_here' && python upload_rm_to_hf.py --all
 
 Available Dimensions:
-    - helpfulness
-    - coherence
-    - complexity
-    - correctness
-    - verbosity
-    - qr (only for QR type)
+    PKU-SafeRLHF:
+        - helpful, safe
+    HelpSteer:
+        - helpfulness, coherence, complexity, correctness, verbosity
+    Hummer:
+        - accuracy, conciseness, depth, empathy, specificity, tone
+    Combined:
+        - all
 
 Model Types:
-    - standard: Standard reward models (output/rm_{dimension})
-    - qr: Quantile regression models (output/rm_qr_{dimension})
+    - standard: Standard reward models (output/rm_{dimension}_PKU-Alignment/...)
+    - qr: Quantile regression models (output/rm_qr_{dimension}_PKU-Alignment/...)
     - both: Upload both types
 """
 
@@ -50,56 +53,75 @@ from pathlib import Path
 from huggingface_hub import HfApi, create_repo, upload_folder
 
 
+def has_model_weights(model_dir: str) -> tuple:
+    """
+    Check if model directory has valid model weights.
+    
+    Returns:
+        (has_weights: bool, weight_format: str or None)
+    """
+    import glob
+    
+    # Check for sharded safetensors (model-00001-of-*.safetensors)
+    sharded_safetensors = glob.glob(os.path.join(model_dir, "model-*-of-*.safetensors"))
+    if sharded_safetensors:
+        return True, f"sharded safetensors ({len(sharded_safetensors)} files)"
+    
+    # Check for single safetensors
+    if os.path.exists(os.path.join(model_dir, "model.safetensors")):
+        return True, "model.safetensors"
+    
+    # Check for pytorch_model.bin (file, not directory)
+    pytorch_path = os.path.join(model_dir, "pytorch_model.bin")
+    if os.path.isfile(pytorch_path):
+        return True, "pytorch_model.bin"
+    
+    return False, None
+
+
 def upload_reward_model(dimension: str, model_type: str = "standard", hf_username: str = "imminsik", token: str = None):
     """
     Upload a dimension-specific reward model to Hugging Face Hub.
     
     Args:
-        dimension: The dimension name (e.g., 'helpfulness', 'coherence')
+        dimension: The dimension name (e.g., 'helpful', 'safe', 'accuracy')
         model_type: Model type - 'qr' for quantile regression or 'standard' for standard RM
         hf_username: Hugging Face username
         token: Hugging Face API token (if None, uses HF_TOKEN env variable)
     """
     # Determine model directory - try both path formats
     if model_type == "qr":
-        if dimension == "qr":
-            candidates = ["output/rm_qr"]
-        else:
-            candidates = [
-                f"output/rm_qr_{dimension}_PKU-Alignment/alpaca-8b-reproduced-llama-3",
-                # f"output/rm_qr_{dimension}",
-            ]
+        candidates = [
+            f"output/rm_qr_{dimension}_PKU-Alignment/alpaca-8b-reproduced-llama-3",
+            f"output/rm_qr_{dimension}",
+        ]
     else:  # standard RM
         candidates = [
             f"output/rm_{dimension}_PKU-Alignment/alpaca-8b-reproduced-llama-3",
-            # f"output/rm_{dimension}",
+            f"output/rm_{dimension}",
         ]
     
     # Find first existing directory with model files
     model_dir = None
+    weight_format = None
     for candidate in candidates:
         if os.path.exists(candidate):
-            # Check for model files (either safetensors or pytorch_model.bin)
-            has_safetensors = os.path.exists(os.path.join(candidate, "model.safetensors"))
-            has_pytorch = os.path.isdir(os.path.join(candidate, "pytorch_model.bin"))
-            if has_safetensors or has_pytorch:
+            has_weights, fmt = has_model_weights(candidate)
+            if has_weights:
                 model_dir = candidate
+                weight_format = fmt
                 break
     
     if model_dir is None:
         print(f"❌ No model directory found. Tried: {candidates}")
         return False
     
-    # Check required files (model can be safetensors or pytorch_model.bin folder)
-    has_model = (
-        os.path.exists(os.path.join(model_dir, "model.safetensors")) or
-        os.path.isdir(os.path.join(model_dir, "pytorch_model.bin"))
-    )
+    # Check required files
     required_files = ["config.json", "tokenizer.json"]
     missing_files = [f for f in required_files if not os.path.exists(os.path.join(model_dir, f))]
     
-    if not has_model:
-        missing_files.append("model.safetensors or pytorch_model.bin/")
+    if not has_weights:
+        missing_files.append("model weights (safetensors or pytorch_model.bin)")
     
     if missing_files:
         print(f"❌ Missing required files in {model_dir}: {missing_files}")
@@ -115,6 +137,7 @@ def upload_reward_model(dimension: str, model_type: str = "standard", hf_usernam
     print(f"\n📦 Uploading {dimension} reward model ({model_type})...")
     print(f"   Local path: {model_dir}")
     print(f"   Repo ID: {repo_id}")
+    print(f"   Weight format: {weight_format}")
     
     # .gitignore 파일 임시 제거 (업로드 방해 방지)
     gitignore_path = os.path.join(model_dir, ".gitignore")
@@ -229,11 +252,21 @@ def main():
         print("   Example: export HF_TOKEN='your_token_here'")
         return
     
-    # Define all dimensions (excluding 'qr' which is only for qr models)
-    standard_dimensions = ["helpfulness", "coherence", "complexity", "correctness", "verbosity"] # helpsteer 
-    # standard_dimensions = ["accuracy", "conciseness", "depth", "empathy", "specificity", "tone"] # hummer
-    qr_dimensions = ["helpfulness", "coherence", "complexity", "correctness", "verbosity"] # helpsteer
-    # qr_dimensions = ["accuracy", "conciseness", "depth", "empathy", "specificity", "tone"] # hummer
+    # Define all dimensions
+    # PKU-SafeRLHF dimensions (helpful/safe)
+    pku_dimensions = ["helpful", "safe"]
+    
+    # HelpSteer dimensions
+    helpsteer_dimensions = ["helpfulness", "coherence", "complexity", "correctness", "verbosity"]
+    
+    # Hummer dimensions
+    hummer_dimensions = ["accuracy", "conciseness", "depth", "empathy", "specificity", "tone"]
+    
+    # Combined: all available dimensions
+    all_dimensions = pku_dimensions + helpsteer_dimensions + hummer_dimensions + ["all"]
+    
+    standard_dimensions = all_dimensions
+    qr_dimensions = all_dimensions
     
     # Determine which dimensions and types to upload
     if args.all:

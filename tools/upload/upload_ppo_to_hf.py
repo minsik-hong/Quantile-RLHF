@@ -3,12 +3,18 @@
 Upload PPO-Panacea models to Hugging Face Hub.
 
 Usage Examples:
-    # Upload single PPO model (default: standard)
-    python upload_ppo_to_hf.py --type standard
-    python upload_ppo_to_hf.py --type qr
+    # Upload single PPO model (default: HH dataset, standard type)
+    python upload_ppo_to_hf.py --type standard --dataset HH
+    python upload_ppo_to_hf.py --type qr --dataset HH
     
-    # Upload both models
-    python upload_ppo_to_hf.py --type both
+    # Upload both model types for a dataset
+    python upload_ppo_to_hf.py --type both --dataset HH
+    
+    # Upload all datasets for a model type
+    python upload_ppo_to_hf.py --type standard --dataset all
+    
+    # Upload everything
+    python upload_ppo_to_hf.py --type both --dataset all
     
     # Use custom username
     python upload_ppo_to_hf.py --type qr --username your_username
@@ -18,8 +24,13 @@ Usage Examples:
     export HF_TOKEN='your_token_here' && python upload_ppo_to_hf.py --type both
 
 Available Models:
-    - standard: PPO-Panacea Standard (output/ppo-panacea-standard)
-    - qr: PPO-Panacea QR (output/ppo-panacea-qr)
+    - HH: PKU-SafeRLHF dataset (output/ppo-panacea-HH-*)
+    - helpsteer: HelpSteer dataset (output/ppo-panacea-*)  
+    - hummer: Hummer dataset (output/ppo-panacea-hummer-*)
+
+Model Types:
+    - standard: Standard reward model based PPO
+    - qr: Quantile regression reward model based PPO
     - both: Upload both types
 """
 
@@ -30,35 +41,64 @@ from pathlib import Path
 from huggingface_hub import HfApi, create_repo
 
 
-def upload_ppo_model(model_type: str = "standard", hf_username: str = "imminsik", token: str = None):
+def has_model_weights(model_dir: str) -> tuple:
+    """
+    Check if model directory has valid model weights.
+    
+    Returns:
+        (has_weights: bool, weight_format: str or None)
+    """
+    import glob
+    
+    # Check for sharded safetensors (model-00001-of-*.safetensors)
+    sharded_safetensors = glob.glob(os.path.join(model_dir, "model-*-of-*.safetensors"))
+    if sharded_safetensors:
+        return True, f"sharded safetensors ({len(sharded_safetensors)} files)"
+    
+    # Check for single safetensors
+    if os.path.exists(os.path.join(model_dir, "model.safetensors")):
+        return True, "model.safetensors"
+    
+    # Check for pytorch_model.bin (file)
+    pytorch_path = os.path.join(model_dir, "pytorch_model.bin")
+    if os.path.isfile(pytorch_path):
+        return True, "pytorch_model.bin"
+    
+    return False, None
+
+
+def upload_ppo_model(model_type: str = "standard", dataset: str = "HH", hf_username: str = "imminsik", token: str = None):
     """
     Upload PPO-Panacea model to Hugging Face Hub.
     
     Args:
         model_type: Model type - 'qr' for quantile regression or 'standard' for standard
+        dataset: Dataset type - 'HH' (PKU-SafeRLHF), 'helpsteer', or 'hummer'
         hf_username: Hugging Face username
         token: Hugging Face API token (if None, uses HF_TOKEN env variable)
     """
-    # Determine model directory
-    if model_type == "qr":
-
-        # DATASET: helpsteer
-        model_dir = "output/ppo-panacea-qr" 
-        repo_name = "ppo-panacea-qr"
-        
-        # DATASET: hummer
-        # model_dir = "output/ppo-panacea-hummer-qr" 
-        # repo_name = "ppo-panacea-hummer-qr" 
-        
-    else:  # standard
-
-        # DATASET: helpsteer
-        model_dir = "output/ppo-panacea-standard" 
-        repo_name = "ppo-panacea-standard" 
-
-        # DATASET: hummer
-        # model_dir = "output/ppo-panacea-hummer-standard" 
-        # repo_name = "ppo-panacea-hummer-standard" 
+    # Determine model directory based on dataset and type
+    if dataset == "HH":
+        if model_type == "qr":
+            model_dir = "output/ppo-panacea-HH-qr"
+            repo_name = "ppo-panacea-HH-qr"
+        else:
+            model_dir = "output/ppo-panacea-HH-standard"
+            repo_name = "ppo-panacea-HH-standard"
+    elif dataset == "hummer":
+        if model_type == "qr":
+            model_dir = "output/ppo-panacea-hummer-qr"
+            repo_name = "ppo-panacea-hummer-qr"
+        else:
+            model_dir = "output/ppo-panacea-hummer-standard"
+            repo_name = "ppo-panacea-hummer-standard"
+    else:  # helpsteer or default
+        if model_type == "qr":
+            model_dir = "output/ppo-panacea-qr"
+            repo_name = "ppo-panacea-qr"
+        else:
+            model_dir = "output/ppo-panacea-standard"
+            repo_name = "ppo-panacea-standard"
     
     # Check if model exists
     if not os.path.exists(model_dir):
@@ -73,26 +113,12 @@ def upload_ppo_model(model_type: str = "standard", hf_username: str = "imminsik"
         print(f"❌ Missing required files in {model_dir}: {missing_files}")
         return False
     
-    # Check for model weights (pytorch_model.bin or in safetensors format)
-    has_weights = False
-    weight_format = None
-    
-    if os.path.exists(os.path.join(model_dir, "pytorch_model.bin")):
-        has_weights = True
-        weight_format = "pytorch_model.bin"
-    elif os.path.exists(os.path.join(model_dir, "model.safetensors")):
-        has_weights = True
-        weight_format = "model.safetensors"
-    
-    # Check for weights in subdirectories (DeepSpeed ZeRO format)
-    pytorch_model_dir = os.path.join(model_dir, "pytorch_model.bin")
-    if os.path.isdir(pytorch_model_dir):
-        has_weights = True
-        weight_format = "pytorch_model.bin (directory)"
+    # Check for model weights
+    has_weights, weight_format = has_model_weights(model_dir)
     
     if not has_weights:
         print(f"❌ No model weights found in {model_dir}")
-        print(f"   Expected: pytorch_model.bin or model.safetensors")
+        print(f"   Expected: pytorch_model.bin or model*.safetensors")
         return False
     
     repo_id = f"{hf_username}/{repo_name}"
@@ -178,6 +204,13 @@ def main():
         help="Model type: 'qr' for quantile regression, 'standard' for standard, 'both' for both types (default: standard)"
     )
     parser.add_argument(
+        "--dataset",
+        type=str,
+        choices=["HH", "helpsteer", "hummer", "all"],
+        default="HH",
+        help="Dataset type: 'HH' (PKU-SafeRLHF), 'helpsteer', 'hummer', or 'all' (default: HH)"
+    )
+    parser.add_argument(
         "--username",
         type=str,
         default="imminsik",
@@ -202,19 +235,25 @@ def main():
     
     # Determine which models to upload
     if args.type == "both":
-        tasks = ["standard", "qr"]
+        types = ["standard", "qr"]
     else:
-        tasks = [args.type]
+        types = [args.type]
+    
+    if args.dataset == "all":
+        datasets = ["HH", "helpsteer", "hummer"]
+    else:
+        datasets = [args.dataset]
     
     # Upload each model
     print(f"\n🚀 Starting PPO-Panacea model upload to Hugging Face (username: {args.username})")
     print("=" * 70)
     
     results = {}
-    for model_type in tasks:
-        key = f"ppo-panacea-{model_type}"
-        success = upload_ppo_model(model_type, args.username, token)
-        results[key] = success
+    for dataset in datasets:
+        for model_type in types:
+            key = f"ppo-panacea-{dataset}-{model_type}"
+            success = upload_ppo_model(model_type, dataset, args.username, token)
+            results[key] = success
     
     # Summary
     print("\n" + "=" * 70)
