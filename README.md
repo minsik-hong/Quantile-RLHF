@@ -303,7 +303,7 @@ python experiment/panacea/benchmark_paper_metrics_qr.py
 | **Sparsity (SP)** | Pareto Front 점들의 균등 분포 정도 |
 | **Spacing** | 최근접 이웃 거리의 표준편차 |
 
-### Standard vs QR 비교
+### Standard vs QR 비교 (reward model value 비교)
 
 | 파일 | 역할 |
 |------|------|

@@ -441,12 +441,20 @@ def load_base_and_panacea(repo_id_or_path: str):
         low_cpu_mem_usage=True,
     ).eval()
 
-    # Load panacea_config.json
+    # Load panacea_config.json or fallback to logs/arguments.json
     config_path = os.path.join(repo_dir, "panacea_config.json")
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(f"panacea_config.json not found: {config_path}")
-    with open(config_path, "r") as f:
-        cfg = json.load(f)
+    args_path = os.path.join(repo_dir, "logs", "arguments.json")
+    
+    if os.path.exists(config_path):
+        print(f"Loading config from: {config_path}")
+        with open(config_path, "r") as f:
+            cfg = json.load(f)
+    elif os.path.exists(args_path):
+        print(f"panacea_config.json not found, using: {args_path}")
+        with open(args_path, "r") as f:
+            cfg = json.load(f)
+    else:
+        raise FileNotFoundError(f"No config found: tried {config_path} and {args_path}")
 
     lora_dim = int(cfg.get("panacea_lora_dim", cfg.get("lora_dim", 8)))
     pref_dim = int(cfg.get("panacea_pref_dim", cfg.get("pref_dim", cfg.get("preference_dim", len(DIMENSIONS)))))
