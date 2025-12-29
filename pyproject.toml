@@ -140,6 +140,13 @@ target-version = "py38"
 line-length = 100
 output-format = "full"
 src = ["safe_rlhf", "tests", "examples"]
+exclude = [
+    "datasets",
+    "experiment",
+    "tools",
+    "scripts",
+    "output",
+]
 
 [tool.ruff.lint]
 select = [
@@ -176,12 +183,29 @@ ignore = [
     "ANN102",
     # ANN401: dynamically typed expressions (typing.Any) are disallowed
     "ANN401",
+    # ANN001, ANN201: missing type annotations
+    "ANN001",
+    "ANN201",
     # S101: use of `assert` detected
     # internal use and may never raise at runtime
     "S101",
+    # S311: pseudo-random generators
+    "S311",
     # PLR0402: use from {module} import {name} in lieu of alias
     # use alias for import convention (e.g., `import torch.nn as nn`)
     "PLR0402",
+    # Q000, Q001, Q002: quote style
+    "Q000",
+    "Q001",
+    "Q002",
+    # W293: blank line contains whitespace
+    "W293",
+    # W292: no newline at end of file
+    "W292",
+    # BLE001: blind exception
+    "BLE001",
+    # SIM118: use key in dict
+    "SIM118",
 ]
 
 [tool.ruff.lint.per-file-ignores]
