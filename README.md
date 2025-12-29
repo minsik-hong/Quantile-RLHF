@@ -128,11 +128,22 @@ bash scripts/ppo-panacea-hummer-qr.sh
 
 #### 주요 파라미터
 
+**Panacea 파라미터**
 ```bash
 PANACEA_LORA_DIM=8              # LoRA rank
-PANACEA_PREF_DIM=2              # 선호도 차원 수 (목표 개수)
+PANACEA_PREF_DIM=2              # 선호도 차원 수 (목표 개수, 자동 설정)
 PANACEA_SCALING=512             # SVD scaling factor
 PANACEA_AGGREGATION="linear_scalarization"  # 또는 "tchebycheff"
+```
+
+**PPO 학습 추가설정 **
+```bash
+# Quantization (메모리 최적화)
+QUANTIZE_REWARD_MODELS=True     # Reward 모델 4-bit 로드
+QUANTIZE_REFERENCE_MODEL=True   # Reference 모델 4-bit 로드
+
+# Save
+SAVE_16BIT=True                 # bf16으로 저장
 ```
 
 ---
@@ -254,14 +265,16 @@ python experiment/panacea/benchmark_paper_metrics_qr.py
 
 ### PPO/Panacea 학습 스크립트
 
+현재 모든 스크립트는 `PKU-Alignment/alpaca-8b-reproduced-llama-3` 베이스 모델을 사용합니다.
+
 | 스크립트 | 설명 | 차원 | RM 유형 |
 |----------|------|------|---------|
-| `ppo-panacea-HH-standard.sh` | Helpful/Safe Panacea | 2D | Standard |
-| `ppo-panacea-HH-qr.sh` | Helpful/Safe Panacea | 2D | Quantile |
-| `ppo-panacea-hummer-standard.sh` | Hummer Panacea | 6D | Standard |
-| `ppo-panacea-hummer-qr.sh` | Hummer Panacea | 6D | Quantile |
-| `ppo-panacea-standard.sh` | HelpSteer Panacea | 5D | Standard |
-| `ppo-panacea-qr.sh` | HelpSteer Panacea | 5D | Quantile |
+| `ppo-panacea-HH-standard.sh` | PKU-SafeRLHF (helpful, safe) | 2D | Standard |
+| `ppo-panacea-HH-qr.sh` | PKU-SafeRLHF (helpful, safe) | 2D | Quantile |
+| `ppo-panacea-hummer-standard.sh` | Hummer (accuracy, conciseness, depth, empathy, specificity, tone) | 6D | Standard |
+| `ppo-panacea-hummer-qr.sh` | Hummer (accuracy, conciseness, depth, empathy, specificity, tone) | 6D | Quantile |
+| `ppo-panacea-standard.sh` | HelpSteer (verbosity, complexity, helpfulness, correctness, coherence) | 5D | Standard |
+| `ppo-panacea-qr.sh` | HelpSteer (verbosity, complexity, helpfulness, correctness, coherence) | 5D | Quantile |
 
 ### Reward Model 학습 스크립트
 
@@ -343,8 +356,10 @@ python experiment/panacea/benchmark_paper_metrics_qr.py
 
 | 파일 | 역할 |
 |------|------|
-| `upload_ppo_to_hf.py` | PPO 모델 HuggingFace 업로드 |
-| `upload_rm_to_hf.py` | Reward Model HuggingFace 업로드 |
+| `upload_ppo_to_hf.py` | PPO 모델 HuggingFace 업로드 (HH, helpsteer, hummer 지원) |
+| `upload_rm_to_hf.py` | Reward Model HuggingFace 업로드 (standard, qr 지원) |
+
+> **Note**: 스크립트는 프로젝트 루트를 자동으로 찾아 어디서든 실행 가능합니다.
 
 ### tools/test/
 
@@ -629,7 +644,10 @@ python tools/data_processing/merge_datasets.py
 
 | 디렉토리 | 내용 |
 |----------|------|
-| `eval_tables/kms_test/` | 평가 로그 및 결과 테이블 |
+| `eval_tables/kms_test/reward_logs_*/` | Standard RM 평가 결과 (자동 생성) |
+| `eval_tables/kms_test/quantile_logs_*/` | Quantile RM 평가 결과 (자동 생성) |
+
+> **Note**: 평가 로그는 Reward Model 학습 시 eval 단계에서 자동으로 생성됩니다. 폴더명에 타임스탬프(`YYYYMMDD_HHMMSS`)가 포함됩니다.
 
 ---
 
