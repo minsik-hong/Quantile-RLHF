@@ -1,20 +1,10 @@
-# Safe-RLHF-HK: Multi-Objective RLHF with Panacea & Quantile
 
-이 프로젝트는 PKU-Alignment의 [Safe-RLHF](https://github.com/PKU-Alignment/safe-rlhf)를 기반으로, **Panacea (Multi-Objective RLHF)**와 **Quantile Reward Model**을 통합한 확장 버전입니다.
-
----
-
-## 프로젝트 개요
-
-### 목표
+PKU-Alignment - [Safe-RLHF](https://github.com/PKU-Alignment/safe-rlhf)
 
 1. **Multi-Objective Alignment**: 단일 목표가 아닌 다중 목표(helpful, safe, verbosity 등)를 동시에 최적화
 2. **Pareto Optimality**: Panacea를 통해 다양한 선호도 조합에서 최적의 모델 제공
 3. **Uncertainty-Aware Reward**: Quantile로 보상의 불확실성 추정
 
----
-
-## 기존 Safe RLHF와의 차이점
 
 | 기능 | Safe RLHF (원본) | Safe-RLHF-HK (확장) |
 |------|------------------|---------------------|
